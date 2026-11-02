@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+#
+# chooseos-helper — privileged helper for ChooseOS.
+#
+# Sets a one-time "boot this OS next" choice in UEFI firmware using
+# efibootmgr's BootNext variable. Installed root-owned and invoked through
+# pkexec, either with a password or (recommended) passwordless via the
+# Polkit rule shipped in system/polkit/49-chooseos.rules.
+#
+# Usage: chooseos-helper {windows|ubuntu|default|status}
+#
+set -euo pipefail
+
+EFIBOOTMGR="$(command -v efibootmgr || echo /usr/bin/efibootmgr)"
+LOG="/var/log/chooseos.log"
+
+WINDOWS_PATTERN="${CHOOSEOS_WINDOWS_PATTERN:-Windows Boot Manager}"
+UBUNTU_PATTERN="${CHOOSEOS_UBUNTU_PATTERN:-ubuntu}"
+
+log() {
+  # Best-effort logging; never fail the operation because of logging.
+  printf '%s %s\n' "$(date -Is)" "$*" >>"$LOG" 2>/dev/null || true
+}
+
+usage() {
+  echo "Usage: chooseos-helper {windows|ubuntu|default|status}" >&2
+  exit 2
+}
+
+# Find the UEFI boot entry number (4 hex digits) whose label matches $1.
+bootnum_for() {
+  local pattern="$1"
+  "$EFIBOOTMGR" \
+    | sed -nE "s/^Boot([0-9A-Fa-f]{4})\*?[[:space:]]+${pattern}([[:space:]]|\$).*/\1/p" \
+    | head -n1
+}
+
+set_bootnext() {
+  local label="$1" pattern="$2" num
+  num="$(bootnum_for "$pattern")"
+  if [ -z "$num" ]; then
+    echo "No UEFI boot entry matching \"$pattern\" was found." >&2
+    log "ERROR: entry not found for pattern '$pattern'"
+    exit 1
+  fi
+  "$EFIBOOTMGR" --bootnext "$num"
+  log "next boot -> $label ($num)"
+  echo "Next restart will boot $label."
+}
+
+delete_bootnext() {
+  "$EFIBOOTMGR" --delete-bootnext
+  log "next boot -> default order (BootNext cleared)"
+  echo "Next restart will use the default boot order."
+}
+
+case "${1:-}" in
+  windows) set_bootnext "Windows" "$WINDOWS_PATTERN" ;;
+  ubuntu)  set_bootnext "Ubuntu"  "$UBUNTU_PATTERN"  ;;
+  default) delete_bootnext ;;
+  status)
+    "$EFIBOOTMGR" | grep -E '^Boot(Current|Next|Order):' || true
+    ;;
+  *) usage ;;
+esac

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Choose Next OS
+GenericName=Dual-boot selector
+Comment=Choose whether Windows or Ubuntu boots after the next restart
+Exec=/usr/local/bin/chooseos
+Icon=org.chooseos.ChooseOS
+Terminal=false
+Categories=System;Settings;Utility;
+Keywords=boot;reboot;restart;grub;efi;uefi;windows;ubuntu;dual-boot;
+StartupNotify=true
+StartupWMClass=org.chooseos.ChooseOS

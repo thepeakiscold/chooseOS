@@ -1,0 +1,10 @@
+// Allow members of the desktop session to run the ChooseOS helper through
+// pkexec without a password prompt. The helper is root-owned and only ever
+// touches the UEFI BootNext variable, so this is tightly scoped.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.policykit.exec" &&
+        action.lookup("program") == "/usr/local/lib/chooseos/chooseos-helper" &&
+        subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});
